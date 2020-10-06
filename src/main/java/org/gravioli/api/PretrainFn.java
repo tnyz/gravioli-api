@@ -3,49 +3,58 @@ package org.gravioli.api;
 import com.google.cloud.functions.HttpFunction;
 import com.google.cloud.functions.HttpRequest;
 import com.google.cloud.functions.HttpResponse;
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 import org.gravioli.Runner;
 import org.gravioli.core.Geo;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 public class PretrainFn implements HttpFunction {
 
     private static final Gson gson = new Gson();
+    private BufferedWriter writer;
 
-    public void service(HttpRequest httpRequest, HttpResponse httpResponse) throws Exception {
-        Map<String, List<String>> qp = httpRequest.getQueryParameters();
-        System.out.println("query parameters: " + qp);
-
-        ArrayList<Geo> points = validateInputAndExtract(httpRequest);
-        System.out.println(points.size());
-        String response = Runner.runLocalZone("", CollectionConverters.asScala(points));
-        BufferedWriter writer = httpResponse.getWriter();
+    public void service(HttpRequest httpRequest, HttpResponse httpResponse) throws IOException {
+        writer = httpResponse.getWriter();
+        JsonObject json = extract(httpRequest);
+        String id = extractId(json);
+        Iterable<Geo> points = extractLocations(json);
+        String response = Runner.runLocalZone(id, CollectionConverters.asScala(points));
         writer.write(response);
     }
 
-    private ArrayList<Geo> validateInputAndExtract(HttpRequest httpRequest) {
-        ArrayList<Geo> geoData = new ArrayList<>();
+    private JsonObject extract(HttpRequest httpRequest) throws IOException {
         try {
-            JsonElement requestParsed = gson.fromJson(httpRequest.getReader(), JsonElement.class);
-            JsonObject requestJson = requestParsed.getAsJsonObject();
-
-            JsonArray locations = requestJson.getAsJsonArray("locations");
-            for (JsonElement point : locations) {
-                JsonObject pointObject = point.getAsJsonObject();
-                Double lat = pointObject.get("latitude").getAsDouble();
-                Double lon = pointObject.get("longitude").getAsDouble();
-                Long ts = pointObject.get("timestamp").getAsLong();
-                geoData.add(new Geo(lat, lon, ts));
-            }
-        } catch (JsonParseException | IOException e) {
-            System.out.println("Error parsing JSON: " + e.getMessage());
+            return gson.fromJson(httpRequest.getReader(), JsonElement.class).getAsJsonObject();
+        } catch (IOException e) {
+            writer.write("Error parsing JSON: " + e.getMessage());
+            throw e;
         }
-        return geoData;
+    }
+
+    private String extractId(JsonObject jsonObject) {
+        try {
+            return jsonObject.getAsJsonObject("config").get("deviceId").getAsString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Iterable<Geo> extractLocations(JsonObject jsonObject) throws IOException {
+        try {
+            JsonElement locations = jsonObject.get("locations");
+            Type geoList = new TypeToken<ArrayList<Geo>>() {}.getType();
+            return gson.fromJson(locations, geoList);
+        } catch (Exception e) {
+            writer.write("Error parsing JSON: " + e.getMessage());
+            throw e;
+        }
     }
 }

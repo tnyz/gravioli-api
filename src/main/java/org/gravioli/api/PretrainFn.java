@@ -9,6 +9,7 @@ import scala.jdk.javaapi.CollectionConverters;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.Optional;
 
 public class PretrainFn implements HttpFunction {
 
@@ -17,17 +18,24 @@ public class PretrainFn implements HttpFunction {
 
     public void service(HttpRequest httpRequest, HttpResponse httpResponse) throws IOException {
         writer = httpResponse.getWriter();
-        Request body = extract(httpRequest);
-        String response = Runner.jsonResponse("tony", CollectionConverters.asScala(body.locations), body.metaOnly);
-        writer.write(response);
+        Optional<Request> request = extract(httpRequest);
+        if (request.isPresent()) {
+            Request body = request.get();
+            if (body.locations == null) {
+                writer.write("No location provided");
+                return;
+            }
+            String response = Runner.jsonResponse(body.deviceId, CollectionConverters.asScala(body.locations), body.metaOnly);
+            writer.write(response);
+        }
     }
 
-    private Request extract(HttpRequest httpRequest) throws IOException {
+    private Optional<Request> extract(HttpRequest httpRequest) throws IOException {
         try {
-            return gson.fromJson(httpRequest.getReader(), Request.class);
-        } catch (IOException e) {
-            writer.write("Error parsing JSON: " + e.getMessage());
-            throw e;
+            return Optional.of(gson.fromJson(httpRequest.getReader(), Request.class));
+        } catch (Exception e) {
+            writer.write(e.getLocalizedMessage());
+            return Optional.empty();
         }
     }
 

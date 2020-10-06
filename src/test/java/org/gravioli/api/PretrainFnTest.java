@@ -10,6 +10,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 import java.io.*;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -48,14 +49,8 @@ public class PretrainFnTest {
         Reader reader = new StringReader(input);
 
         when(request.getReader()).thenReturn(new BufferedReader(reader));
-        when(response.getWriter()).thenReturn(bufferedWriter);
-        try {
-            api.service(request, response);
-        } finally {
-            bufferedWriter.flush();
-            Assert.assertEquals(stringWriter.getBuffer().toString(),
-                    "com.google.gson.stream.MalformedJsonException: Unterminated string at line 1 column 18 path $.deviceId");
-        }
+        api.service(request, response);
+        verify(response).setStatusCode(400, "com.google.gson.stream.MalformedJsonException: Unterminated string at line 1 column 18 path $.deviceId");
     }
 
     @Test
@@ -67,11 +62,8 @@ public class PretrainFnTest {
         Reader reader = new StringReader(input);
 
         when(request.getReader()).thenReturn(new BufferedReader(reader));
-        when(response.getWriter()).thenReturn(bufferedWriter);
-
         api.service(request, response);
-        bufferedWriter.flush();
-        Assert.assertEquals(stringWriter.getBuffer().toString(), "No location provided");
+        verify(response).setStatusCode(400, "No location provided");
     }
 
     @Test

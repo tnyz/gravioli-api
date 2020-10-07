@@ -8,29 +8,31 @@ import org.gravioli.Runner;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.util.Optional;
 
 public class PretrainFn implements HttpFunction {
 
     private static final Gson gson = new Gson();
-    private HttpResponse response;
 
     public void service(HttpRequest httpRequest, HttpResponse httpResponse) throws IOException {
-        response = httpResponse;
-        Optional<Request> request = extract(httpRequest);
+        Optional<Request> request = extract(httpRequest.getReader(), httpResponse);
         if (request.isPresent()) {
             Request body = request.get();
             if (body.locations == null) {
                 httpResponse.setStatusCode(400, "No location provided");
                 return;
             }
-            response.getWriter().write(Runner.jsonResponse(body.deviceId, CollectionConverters.asScala(body.locations), body.metaOnly));
+            String response = Runner.jsonResponse(body.deviceId,
+                    CollectionConverters.asScala(body.locations),
+                    body.metaOnly);
+            httpResponse.getWriter().write(response);
         }
     }
 
-    private Optional<Request> extract(HttpRequest httpRequest) {
+    private Optional<Request> extract(Reader reader, HttpResponse response) {
         try {
-            return Optional.of(gson.fromJson(httpRequest.getReader(), Request.class));
+            return Optional.of(gson.fromJson(reader, Request.class));
         } catch (Exception e) {
             response.setStatusCode(400, e.getLocalizedMessage());
             return Optional.empty();

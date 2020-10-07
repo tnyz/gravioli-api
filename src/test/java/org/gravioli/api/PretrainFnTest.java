@@ -43,8 +43,6 @@ public class PretrainFnTest {
     @Test
     public void invalid() throws IOException {
         PretrainFn api = new PretrainFn();
-        StringWriter stringWriter = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(stringWriter);
         String input = "{\"deviceId\": \"to}";
         Reader reader = new StringReader(input);
 
@@ -56,8 +54,6 @@ public class PretrainFnTest {
     @Test
     public void incomplete() throws IOException {
         PretrainFn api = new PretrainFn();
-        StringWriter stringWriter = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(stringWriter);
         String input = "{\"deviceId\": \"tony\"}";
         Reader reader = new StringReader(input);
 
